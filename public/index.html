@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
+    <link rel="icon" href="/logoNew.png" />
+    <title>龙马书卷</title>
+    <link rel="stylesheet" href="//at.alicdn.com/t/c/font_4255428_v79tpxn8uq.css" />
+    <!-- digicarbon -->
+    <link rel="stylesheet" href="//at.alicdn.com/t/c/font_4435983_wbwet1g304g.css" />
+    <style>
+      .digi-loading-page {
+        width: 100%;
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        overflow: hidden;
+      }
+      .didi-loading {
+        display: flex;
+        justify-content: center;
+        color: #666;
+        font-size: 12px;
+      }
+      .info {
+        margin: 0 0 10px 0;
+      }
+      .van-loading {
+        margin-right: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>
+      <strong
+        >We're sorry but <%= htmlWebpackPlugin.options.title %> doesn't work properly without JavaScript enabled. Please
+        enable it to continue.</strong
+      >
+    </noscript>
+    <div id="app">
+      <div class="digi-loading-page">
+        <div class="img-box">
+          <img style="width: 150px" class="logo" src="/logo竖.png" alt="" />
+        </div>
+        <p class="info">专家级高质量知识库</p>
+        <div class="didi-loading">
+          <van-loading size="13" color="#3b9162" type="spinner" />
+          <div>大模型知识库启动中，请耐心等待...</div>
+        </div>
+      </div>
+    </div>
+    <!-- built files will be auto injected -->
+  </body>
+</html>
