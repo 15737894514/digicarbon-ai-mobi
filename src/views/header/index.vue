@@ -147,23 +147,23 @@ export default {
         });
       }
     },
-    async reset() {
-      localStorage.setItem("accessToken", "");
-      localStorage.setItem("agentId", "");
-      localStorage.setItem("sessionId", "");
-      await agentListApi(this.utils.getComParams()).then((res) => {
-        this.roles = res.data.agentList;
-      });
-      this.roles.forEach((item) => {
-        let sessionIdKey = `${item.agentId}-sessionId`;
-        localStorage.setItem(sessionIdKey, "");
-      });
-      if (this.$route.path === "/ai") {
-        this.$emit("updatePage");
-      } else {
-        this.$router.push("/");
-      }
-    },
+    // async reset() {
+    //   localStorage.setItem("accessToken", "");
+    //   localStorage.setItem("agentId", "");
+    //   localStorage.setItem("sessionId", "");
+    //   await agentListApi(this.utils.getComParams()).then((res) => {
+    //     this.roles = res.data.agentList;
+    //   });
+    //   this.roles.forEach((item) => {
+    //     let sessionIdKey = `${item.agentId}-sessionId`;
+    //     localStorage.setItem(sessionIdKey, "");
+    //   });
+    //   if (this.$route.path === "/ai") {
+    //     this.$emit("updatePage");
+    //   } else {
+    //     this.$router.push("/");
+    //   }
+    // },
     beforeClose(action, done) {
       if (action === "confirm") {
         return this.feedbackVal ? done() : done(false);

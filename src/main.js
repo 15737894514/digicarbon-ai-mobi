@@ -43,7 +43,7 @@ router.beforeEach((to, from, next) => {
         if (/Android|webOS|iPhone|iPod|BlackBerry/i.test(navigator.userAgent)) {
           next();
         } else {
-          window.location.href = getHost[process.env["VUE_APP_ENV"]];
+          window.location.href = `${getHost[process.env["VUE_APP_ENV"]]}${location.search}`;
           return;
         }
       } catch (e) {

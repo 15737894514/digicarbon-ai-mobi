@@ -4,3 +4,13 @@ export const getHost = {
   "cn-pre": "//101.132.121.151/ai",
   cn: `//Carbonchat.cn/ai`,
 };
+export const agentIconPath = {
+  development: "//101.132.121.151:8092/api/basic/pic/",
+  "cn-pre": "//101.132.121.151:8092/api/basic/pic/",
+  cn: `//Carbonchat.cn/api/basic/pic/`,
+};
+export const sseHost = {
+  development: "//101.132.121.151:8803",
+  "cn-pre": "//101.132.121.151:8803",
+  cn: `//Carbonchat.cn`,
+};

@@ -5,14 +5,20 @@
     <div class="ai-chat-container">
       <div class="ai-chat-main">
         <!-- 默认话题 -->
-        <digiAiDefault @getNewTopic="defaultAsk" v-if="agentId" :agentName="$attrs.agentName"></digiAiDefault>
+        <DigiChatInfo
+          :agentData="$attrs.agentData"
+          @getNewTopic="defaultAsk"
+          v-if="agentId"
+          :agentChatDesc="$attrs.agentChatDesc"
+        ></DigiChatInfo>
+        <!-- <digiAiDefault @getNewTopic="defaultAsk" v-if="agentId" :agentName="$attrs.agentName"></digiAiDefault> -->
         <span>
           <div class="ai-chat-content" v-for="(item, index) in data" :key="index">
             <!-- 问 -->
-            <div v-if="item.role_type === 'user'" class="ask-content content">
+            <div v-if="item.role === 'user'" class="ask-content content">
               <img :src="userData.picUrl ? userData.picUrl : require(`@/assets/imgs/logo.png`)" alt="" />
               <div class="chat-value-box">
-                <div class="chat-value">{{ item.content }}</div>
+                <div class="chat-value">{{ item.message }}</div>
               </div>
               <div class="opt-box">
                 <el-tooltip effect="dark" content="复制" placement="top">
@@ -28,15 +34,12 @@
             </div>
             <!-- ai 回答 -->
             <div v-else class="ai-content content">
-              <img
-                :src="agentId ? require(`@/assets/imgs/${agentId}.jpg`) : require('@/assets/imgs/robot.webp')"
-                alt=""
-              />
+              <img :src="agentId ? $attrs.agentData.agentVersionIcon : require('@/assets/imgs/robot.webp')" alt="" />
               <div class="ai-value-box">
                 <div class="chat-value">
-                  <digiLoading v-if="status === 'pending' && !item.content && index === data.length - 1"></digiLoading>
-                  <span class="ai-md-con" v-html="compiledMarkdown(item.content)" v-if="item.content"></span>
-                  <!-- <span class="sign" v-if="status === 'pending' && item.content"></span> -->
+                  <digiLoading v-if="status === 'pending' && !item.message && index === data.length - 1"></digiLoading>
+                  <span class="ai-md-con" v-html="compiledMarkdown(item.message)" v-if="item.message"></span>
+                  <!-- <span class="sign" v-if="status === 'pending' && item.message"></span> -->
                   <div class="opt-box">
                     <el-tooltip effect="dark" content="复制" placement="top">
                       <el-button
@@ -72,7 +75,7 @@
     <div class="tas-chat-input">
       <!-- 未登录剩余使用次数 v-if="!isLogin"-->
       <!-- 默认问题气泡 -->
-      <div v-if="data.length === 0" class="surplus">
+      <div v-if="questionShow" class="surplus">
         <div
           class="over-ellipsis qustion-btn"
           @click="defaultAsk(item)"
@@ -85,30 +88,38 @@
           {{ item }}
         </div>
       </div>
-      <div v-if="!isLogin && data.length !== 0" class="surplus-use-count">
+      <!-- <div v-if="!isLogin && data.length !== 0" class="surplus-use-count">
         <i class="el-icon-chat-line-round"></i>
         {{ surplusUseCount === 0 ? "次数已用完" : `剩余使用次数：${surplusUseCount}（注册即免费使用）` }}
+      </div> -->
+      <div class="send-box">
+        <van-field
+          @input="(val) => (value = val)"
+          @keydown.enter.native="carriageReturn($event)"
+          :rows="2"
+          autosize
+          maxlength="1000"
+          id="textarea"
+          type="textarea"
+          :placeholder="
+            !isLogin && data.length !== 0
+              ? surplusUseCount === 0
+                ? '次数已用完'
+                : `请输入...（剩余使用次数：${surplusUseCount}（注册即免费使用））`
+              : '请输入...'
+          "
+          v-model="value"
+        >
+        </van-field>
+        <el-button
+          :disabled="!value"
+          :loading="status === 'pending' ? true : false"
+          class="send"
+          icon="el-icon-position"
+          @click="sendClick()"
+          type="text"
+        ></el-button>
       </div>
-      <van-field
-        @input="(val) => (value = val)"
-        @keydown.enter.native="carriageReturn($event)"
-        :rows="2"
-        autosize
-        maxlength="1000"
-        id="textarea"
-        type="textarea"
-        placeholder="请输入..."
-        v-model="value"
-      >
-      </van-field>
-      <el-button
-        :disabled="!value"
-        :loading="status === 'pending' ? true : false"
-        class="send"
-        icon="el-icon-position"
-        @click="sendClick()"
-        type="text"
-      ></el-button>
     </div>
     <van-dialog style="padding: 10px" v-model="diaShow" :show-confirm-button="false">
       <div class="ask-login">
@@ -124,24 +135,29 @@
 
 <script>
 import digiAiDefault from "views/digiAi/default.vue";
+import DigiChatInfo from "./chatInfo.vue";
 import { sessionQueryApi, sessionSendV2Api, sessionKillApi } from "api";
 import digiLoading from "./loading.vue";
 import marked from "marked";
 import { mapState } from "vuex";
+import SSE from "@/utils/sse";
+import { sseHost } from "@/utils/config";
+let { VUE_APP_ENV } = process.env;
 export default {
   name: "",
   props: {
     sessionId: String,
   },
-  components: { digiAiDefault, digiLoading },
+  components: { digiAiDefault, DigiChatInfo, digiLoading },
   data() {
     return {
+      questionShow: true,
       isShowEnd: false, //终止对话
       diaShow: false,
       value: "",
       data: [
-        // { content: "你好", role_type: "user" },
-        // { content: "", role_type: "" },
+        // { content: "你好", role: "user" },
+        // { content: "", role: "" },
       ],
       status: "",
       sendType: 0, // 0/1 1代表重新生成
@@ -183,7 +199,7 @@ export default {
       });
     },
     copyActive(e, item) {
-      this.utils.handleClipboard(e, item.content);
+      this.utils.handleClipboard(e, item.message);
     },
     rebuild(item, index) {
       this.sendType = 1;
@@ -193,8 +209,8 @@ export default {
       //获取问的内容 递归获取（由于生成多次ai回答的情况）
       let getQuestion = () => {
         let questionItem = this.data[index - 1];
-        if (questionItem.role_type === "user") {
-          question = questionItem.content;
+        if (questionItem.role === "user") {
+          question = questionItem.message;
         } else {
           index--;
           getQuestion();
@@ -220,8 +236,14 @@ export default {
       this.sendClick();
     },
     stopClick() {
+      this.source.close();
+      this.status = "done";
       this.isShowEnd = false;
-      sessionKillApi({ qid: this.qid, ...this.utils.getComParams() });
+      this.question = "";
+      this.sendType = 0;
+      this.createTopic = false;
+      this.setRandomQuestion();
+      this.questionShow = true;
     },
     sendClick(question) {
       //没登录，但是使用了10次，引导去登录
@@ -239,7 +261,7 @@ export default {
       let value = this.value.replace(/\n$/, ""); //去掉最后面的\n
       this.question = value || question; //question是重新生成传过来的值
       if (!this.question) return;
-
+      this.questionShow = false;
       //登录了，并且是在默认话题界面
       if (this.sessionId === this.config.sessionDefault && this.utils.isLogin()) {
         this.createTopic = true;
@@ -251,54 +273,96 @@ export default {
       }
       this.value = ""; //清除value值
 
-      let obj = { content: this.question, role_type: "user" };
+      let obj = { message: this.question, role: "user" };
+      let aiCon = { role: "assistant", message: "" };
+      this.aiCon = aiCon;
       //不是重新生成的时候
       if (!question) {
         this.data.push(obj);
+        this.data.push(aiCon);
       } else if (this.createTopic) {
         //在默认话题（临时）创建的话题列表 第一次问的时候
         this.data.push(obj);
+        this.data.push(aiCon);
       }
 
-      this.qid = `qid-${this.utils.uuid()}`; //每一次的问是一个qid。为了长轮询 后端知道这是一个问题（好做话题记录）
       this.$nextTick(() => {
         this.getAiContent(true);
+        this.scrollToBottom(); //内容多的时候自动给你滚动到底部
       });
     },
-    //获取ai大模型的数据
-    getAiContent(first) {
+    getSSEParams() {
       let agentId = this.$store.state.agentId;
-      sessionSendV2Api({
+      let data = {
         ...this.utils.getComParams(),
         agentId,
         sessionId: this.sessionId,
         question: this.question,
         sendType: this.sendType, // 0/1 发送/重新生成
-        sendCode: this.sendCode,
-        qid: this.qid,
-      }).then((res) => {
-        let { status, content, sendCode } = res.data;
-        content = content.replace(/^\s+|\s+$/g, ""); //去掉首位空格
-        this.status = status;
-        let aiCon = { role_type: "asistant", content, sendCode };
+        history: this.data.slice(0, -2),
+      };
+      //转数据为json字符串
+      var jsondata = JSON.stringify(data);
+      return jsondata;
+    },
+    //获取ai大模型的数据
+    getAiContent() {
+      this.status = "pending";
+      let source = new SSE(`${sseHost[VUE_APP_ENV]}/api/llm/stream`, {
+        headers: { "Content-Type": "application/json" },
+        payload: this.getSSEParams(),
+        method: "POST",
+      }); // 替换为你的 SSE 端点 URL
+      this.source = source;
+      //与后台连接成功触发的监听
+      source.addEventListener("open", (e) => {
+        console.log("连接成功");
+        // this.status = "pending";
+      });
+
+      //接收到后台数据触发监听方法
+      source.addEventListener("message", (e) => {
+        console.log("收到数据 event", e);
+        let data = e.data;
+        if (!data) return;
+        let aiData = JSON.parse(data);
+        console.log("[ aiData ] >", aiData);
+        let message = aiData.content;
+        let status = aiData["finish_reason"] || aiData["finish reason"];
+        this.status = ["Error", "Stop"].includes(status) ? "done" : "pending";
+        // if (this.status == "Error") return;
+        this.aiCon.message += message;
         //ai 回答完成
-        if (status === "done") {
-          this.setAiContent(first, aiCon);
+        if (this.status === "done") {
+          this.setAiContent(this.aiCon);
           this.question = "";
-          cancelAnimationFrame(this.timer);
-          this.sendCode = "";
           this.sendType = 0;
           this.createTopic = false;
           this.isShowEnd = false;
           !this.utils.isLogin() && this.setUseCount(); //使用的次数
+          this.setRandomQuestion();
+          this.questionShow = true;
         } else {
           //正在进行中
-          this.setAiContent(first, aiCon);
-          this.timer = requestAnimationFrame(() => {
-            this.getAiContent();
-          });
+          this.setAiContent(this.aiCon);
+          this.first = false;
         }
       });
+
+      //请求出错触发的监听方法
+      source.addEventListener("error", (e) => {
+        console.error("请求出错：", e);
+        this.stopClick();
+      });
+
+      //数据传输完成关闭连接触发的监听方法
+      // source.addEventListener("close", (e) => {
+      //   console.log("连接关闭");
+      //   this.closeHandle();
+      // });
+
+      //调用发起请求
+      source.stream();
     },
     //未登录 设置使用次数
     setUseCount() {
@@ -307,12 +371,8 @@ export default {
       localStorage.setItem("useCount", useCount);
       this.getSurplusUseCount();
     },
-    setAiContent(first, aiCon) {
-      if (first) {
-        this.data.push(aiCon);
-      } else {
-        this.data.splice(this.data.length - 1, 1, aiCon);
-      }
+    setAiContent(aiCon) {
+      this.data.splice(this.data.length - 1, 1, aiCon);
       this.scrollToBottom(); //内容多的时候自动给你滚动到底部
     },
     scrollToBottom() {
@@ -328,21 +388,19 @@ export default {
       this.$EventBus.$emit("goLogin");
     },
     setRandomQuestion() {
-      this.btns = this.utils.getRandomQuestion(this.agentId, 3);
-      console.log("[this.btns  ] >", this.btns);
+      let questions = this.$attrs.agentData.agentVersionChatInfo;
+      this.btns = this.utils.getRandomQuestion(questions, 3);
     },
   },
   destroy() {
     this.stopClick();
   },
   watch: {
-    agentId: {
+    "$attrs.agentData": {
       deep: true,
       immediate: true,
       handler(newVal) {
-        if (newVal) {
-          this.setRandomQuestion();
-        }
+        newVal && this.setRandomQuestion();
       },
     },
     sessionId: {
@@ -364,6 +422,17 @@ export default {
 </script>
 <style scoped lang="scss">
 $mainWidth: 100%;
+.send-box {
+  position: absolute;
+  bottom: 10px;
+  // right: 10px;
+  // left: 10px;
+
+  width: 100%;
+  ::v-deep textarea::placeholder {
+    font-size: 13px;
+  }
+}
 
 .digi-ai {
   position: relative;
@@ -374,7 +443,7 @@ $mainWidth: 100%;
 .ai-chat-container {
   position: relative;
   height: calc(100% - 10px);
-  padding: 100px 10px 60px 10px;
+  padding: 100px 10px 100px 10px;
   overflow: auto;
   .ai-chat-main {
     width: $mainWidth;
@@ -401,6 +470,7 @@ $mainWidth: 100%;
 .surplus {
   position: absolute;
   top: -40px;
+  // top: 6px;
   left: 0;
   right: 0;
   display: flex;
@@ -453,6 +523,7 @@ $mainWidth: 100%;
   width: $mainWidth;
   background: #fff;
   // height: $sendInputHeight;
+  height: 70px;
   left: 50%;
   padding: 5px 0;
   transform: translateX(-50%);
@@ -470,6 +541,7 @@ $mainWidth: 100%;
     // height: 80%;
     // height: calc(100% - 100px);
     min-height: 0 !important;
+    max-height: 60vh;
     // height: 45px !important;
     // line-height: 100%;
     background: #f0f1f5;
@@ -484,7 +556,7 @@ $mainWidth: 100%;
   }
   .send {
     position: absolute;
-    bottom: 5px;
+    bottom: 2px;
     // top: 0;
     right: 10px;
     font-size: 25px;
@@ -523,12 +595,15 @@ $mainWidth: 100%;
     // position: relative;
     display: flex;
     width: calc(100% - 120px);
+
     flex-direction: column;
     align-items: flex-end;
     // padding: 15px 0;
 
     .chat-value {
+      text-align: left;
       background: #fff;
+      overflow-x: auto;
       color: #080808;
       border-radius: 10px 0 15px 10px;
       padding: 15px 10px;
@@ -568,6 +643,9 @@ $mainWidth: 100%;
       ::v-deep ol,
       ::v-deep ul {
         padding-left: 18px;
+      }
+      ::v-deep pre {
+        overflow-x: auto;
       }
       ::v-deep a {
         color: $themeColor;

@@ -1,45 +1,65 @@
 <template>
   <div class="role-intro">
     <digiHeader></digiHeader>
-    <div class="intro-box" v-for="(item, index) in roles" :key="index">
-      <!-- <h3>点击选择您要使用的知识库</h3> -->
-      <div class="intro-con">
-        <div class="role-title">
-          <img :src="require(`@/assets/imgs/${item.agentId}.jpg`)" alt="" />
-          <h4>"{{ item.agentName }}"大模型知识库</h4>
-        </div>
+    <van-collapse class="intro-box" v-model="activeNames">
+      <van-collapse-item
+        v-for="(item, index) in data.agentGroup"
+        :title="getAgentGroupName(item)"
+        :name="index"
+        :key="index"
+      >
+        <div class="intro-con" v-for="(agent, i) in getAgent(item)" :key="i">
+          <div>
+            <div class="role-title">
+              <img :src="agent.agentVersionIcon" alt="" />
+              <h4>"{{ agent.agentVersionName }}"大模型知识库</h4>
+            </div>
 
-        <div class="role-info">
-          <div class="content">{{ intro[item.agentId] }}</div>
+            <div class="role-info">
+              <div class="content">{{ agent.agentVersionDesc }}</div>
+            </div>
+            <van-button size="small" @click="useRole(agent)" type="primary" style="margin-top: 10px; width: 60%" round
+              >使 用</van-button
+            >
+          </div>
         </div>
-        <van-button size="small" @click="useRole(item)" type="primary" style="margin-top: 10px; width: 60%" round>使 用</van-button>
+      </van-collapse-item>
+    </van-collapse>
+    <!-- <div class="intro-box" v-for="(item, index) in data.agentGroup" :key="index">
+      <h3>{{ getAgentGroupName(item) }}</h3>
+      <div v-for="(agent, i) in getAgent(item)" :key="i">
+        <div class="intro-con">
+          <div class="role-title">
+            <img :src="agent.agentVersionIcon" alt="" />
+            <h4>"{{ agent.agentVersionName }}"大模型知识库</h4>
+          </div>
+
+          <div class="role-info">
+            <div class="content">{{ agent.agentVersionDesc }}</div>
+          </div>
+          <van-button size="small" @click="useRole(item)" type="primary" style="margin-top: 10px; width: 60%" round
+            >使 用</van-button
+          >
+        </div>
       </div>
-    </div>
+    </div> -->
   </div>
 </template>
 
 <script>
 import { mapState } from "vuex";
 import digiHeader from "views/header";
-import { agentListApi } from "api";
+import { agentListApi, agentListV1Api } from "api";
+let { VUE_APP_ENV } = process.env;
+import { agentIconPath } from "@/utils/config";
 export default {
   name: "",
   props: {},
   components: { digiHeader },
   data() {
     return {
-      roles: [],
-      intro: {
-        "AGENT-202402171203":
-          "精选自中央财经大学等顶尖高校500万字原始语料，为您提供权威的双碳信息与绿色金融最新洞察。无论是政策解读、市场分析还是实践指南，我们为您的绿色发展之旅保驾护航。立即探索，开启智慧绿色未来。",
-        "AGENT-202402171204":
-          "探索「航运ETS大模型知识库」，您的一站式欧盟ETS规则导航。我们提供专家级对话式服务，从MOHA账户申请到碳排放数据报送，再到核查、交易履约及减排策略，全方位支持您轻松应对欧盟碳排放交易系统的每一步。立即加入，让复杂流程变得简单。",
-        "AGENT-202402171205":
-          "汇集最新国家政策法规与实践指南，提供从数据发现、分类到增值的全程精准指导。旨在助力企业通过数据资产化实现战略决策与业务增长，成为数据驱动发展的领航者。立即启航，开启数据资产化的增值之旅。",
-        "AGENT-202403181348": "DIGICARBON内部实验专用大模型知识库。", //龙马智碳-涌现
-        "AGENT-202403181347":
-          "集成欧盟碳关税的最新法案，深度解析欧盟碳边界调整机制（CBAM），旨在为企业提供关键策略和实用指南，确保符合欧盟碳排放标准，规避违约风险。通过汇集全球最新法律和政策分析，为企业和出口商提供实时问答服务，从碳关税影响评估到合规策略制定，帮助您优化业务布局，维护市场竞争力。", //
-      },
+      activeNames: [],
+      data: {},
     };
   },
   computed: {
@@ -49,13 +69,22 @@ export default {
     this.initPage();
   },
   methods: {
+    getAgent(agentGroupId) {
+      let { data } = this.data;
+      return data.filter((item) => item.agentGroupId === agentGroupId);
+    },
+    getAgentGroupName(agentGroupId) {
+      let { data } = this.data;
+      return data.find((item) => item.agentGroupId === agentGroupId)?.agentGroupName;
+    },
     useRole(item) {
+      // console.log("[ item ] >", item);
       let agentId = item.agentId;
-      let agentName = item.agentName;
+      let agentName = item.agentVersionName;
       localStorage.setItem("agentId", agentId);
       localStorage.setItem("agentName", agentName);
-      this.$store.commit("setAgentId", this.agentId);
-      this.$store.commit("setAgentName", this.agentName);
+      this.$store.commit("setAgentId", agentId);
+      this.$store.commit("setAgentName", agentName);
       this.$router.push("/");
     },
     filterRoleByEnv(agentList) {
@@ -66,10 +95,21 @@ export default {
       return agentList?.filter((item) => (VUE_APP_ENV === "cn-pre" ? item : item.agentId !== "AGENT-202403181348"));
     },
     initPage() {
-      agentListApi(this.utils.getComParams()).then((res) => {
-        let agentList = res.data.agentList;
+      let env = VUE_APP_ENV === "cn" ? "prod" : "pre";
+      console.log("[ VUE_APP_ENV ] >", VUE_APP_ENV);
+      agentListV1Api({ ...this.utils.getComParams(), env }).then((res) => {
+        console.log("[ res ] >", res);
+        // let agentList = res.data.agentList;
+        this.data = res.data;
+        let { data, agentGroup } = this.data;
+        if (data?.length > 0) {
+          data.forEach((item) => {
+            item.agentVersionIcon = `${agentIconPath[VUE_APP_ENV]}${item.agentVersionIcon}`;
+          });
+          this.activeNames = [agentGroup.length - 1];
+        }
         // this.roles = this.filterRoleByEnv(agentList);
-        this.roles = agentList;
+        // this.roles = agentGroup;
       });
     },
   },
@@ -100,13 +140,21 @@ $imgSize: 80px;
       font-size: 14px;
       // margin: 10px 0;
     }
+    h3 {
+      margin-top: 10px;
+    }
     .intro-con {
-      margin: 10px 10px 0 10px;
-      background: #fff;
+      margin: 10px 0 0 0;
+      // background: #fff;
+      background: #f8f8f8;
+      color: #333;
       min-width: 300px;
       padding: 5px 10px 10px 10px;
       border-radius: 5px;
       box-shadow: 0 2px 2px 0 rgba(0, 0, 0, 0.05);
+      &:first-child {
+        margin-top: 0;
+      }
     }
     .role-info {
       display: flex;
@@ -117,5 +165,10 @@ $imgSize: 80px;
       // margin-left: 20px;
     }
   }
+}
+::v-deep .van-cell__title {
+  font-weight: 600;
+  text-align: left;
+  color: $themeColor;
 }
 </style>

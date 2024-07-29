@@ -1,11 +1,11 @@
 <template>
   <div class="role-box" @click="changeRole">
     <div class="role-img-box">
-      <img v-if="agentId" :src="require(`@/assets/imgs/${agentId}.jpg`)" alt="" />
+      <img v-if="agentData.agentVersionIcon" :src="agentData.agentVersionIcon" alt="" />
     </div>
     <div class="role-info over-ellipsis">
       <p>
-        {{ agentName }}<span>{{ sessionName }}</span>
+        {{ agentData.agentVersionName }}<span>{{ sessionName }}</span>
       </p>
       <p>点击切换知识库</p>
     </div>
@@ -19,6 +19,10 @@ import { allSessionListApi } from "api";
 export default {
   name: "selRoleInfo",
   props: {
+    agentData: {
+      type: Object,
+      default: () => {},
+    },
     sessionId: String,
   },
   components: {},
